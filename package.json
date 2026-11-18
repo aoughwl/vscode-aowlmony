@@ -1,0 +1,143 @@
+{
+  "name": "aowlmony",
+  "displayName": "aowlmony",
+  "description": "Language support for aowlmony: syntax highlighting, diagnostics, hover, go to definition, references, rename, completion, semantic tokens, symbols and F6 run, powered by the aowllsp language server.",
+  "version": "1.0.0",
+  "publisher": "aoughwl",
+  "license": "MIT",
+  "engines": {
+    "vscode": "^1.75.0"
+  },
+  "categories": [
+    "Programming Languages"
+  ],
+  "keywords": [
+    "aowlmony",
+    "aowl",
+    "nif",
+    "lsp",
+    "language-server"
+  ],
+  "main": "./out/extension.js",
+  "activationEvents": [
+    "onLanguage:aowlmony"
+  ],
+  "contributes": {
+    "configurationDefaults": {
+      "files.exclude": {
+        "**/.aowllsp": true
+      }
+    },
+    "languages": [
+      {
+        "id": "aowlmony",
+        "aliases": [
+          "aowlmony",
+          "Aowlmony"
+        ],
+        "extensions": [
+          ".aowl"
+        ],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "aowlmony",
+        "scopeName": "source.aowlmony",
+        "path": "./syntaxes/aowlmony.tmLanguage.json"
+      }
+    ],
+    "commands": [
+      {
+        "command": "aowlmony.restartServer",
+        "title": "aowlmony: Restart Language Server"
+      },
+      {
+        "command": "aowlmony.run.file",
+        "title": "aowlmony: Run File"
+      },
+      {
+        "command": "aowlmony.clearCache",
+        "title": "aowlmony: Clear Language Server Cache & Restart"
+      }
+    ],
+    "configuration": {
+      "type": "object",
+      "title": "aowlmony",
+      "properties": {
+        "aowlmony.serverPath": {
+          "type": "string",
+          "default": "",
+          "markdownDescription": "Absolute path to `aowllsp.exe`. Empty = `$AOWLLSP_EXE`, then `~/dev/aowllsp/bin/aowllsp.exe`."
+        },
+        "aowlmony.aowlmonyPath": {
+          "type": "string",
+          "default": "",
+          "description": "Path to the aowlmony compiler driver. Empty = the server finds it (AOWLMONY_EXE / AOWLMONY_ROOT / PATH)."
+        },
+        "aowlmony.aowllensPath": {
+          "type": "string",
+          "default": "",
+          "description": "Path to aowllens.exe (symbols, semantic tokens, completion, hints). Empty = next to the server."
+        },
+        "aowlmony.aowlsuggestPath": {
+          "type": "string",
+          "default": "",
+          "description": "Path to aowlsuggest.exe (syntax diagnostics, quick fixes). Empty = next to the server."
+        },
+        "aowlmony.aowlfmtPath": {
+          "type": "string",
+          "default": "",
+          "description": "Path to aowlfmt.exe (formatting). Empty = formatting off."
+        },
+        "aowlmony.extraPaths": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [],
+          "description": "Additional module search paths (--path) passed to aowlmony via the language server."
+        },
+        "aowlmony.trace.server": {
+          "type": "string",
+          "enum": [
+            "off",
+            "messages",
+            "verbose"
+          ],
+          "default": "off",
+          "description": "Traces the communication between VS Code and the aowlmony language server."
+        }
+      }
+    },
+    "keybindings": [
+      {
+        "key": "F6",
+        "command": "aowlmony.run.file",
+        "when": "editorLangId == 'aowlmony'"
+      }
+    ]
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run bundle",
+    "compile": "tsc -p ./ --noEmit",
+    "bundle": "esbuild src/extension.ts --bundle --outfile=out/extension.js --external:vscode --format=cjs --platform=node --target=node18"
+  },
+  "dependencies": {
+    "vscode-languageclient": "^9.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "@types/vscode": "^1.75.0",
+    "typescript": "^5.4.0",
+    "esbuild": "^0.23.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/aoughwl/vscode-aowlmony.git"
+  },
+  "bugs": {
+    "url": "https://github.com/aoughwl/vscode-aowlmony/issues"
+  }
+}

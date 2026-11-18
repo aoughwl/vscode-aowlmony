@@ -16,7 +16,7 @@ let statusBarItem: vscode.StatusBarItem;
 // config-change events as independent async callbacks; without serialization a
 // second event can call startClient() while the first stopClient() is still
 // awaiting the old server's shutdown, spawning a NEW server before the old one
-// exits — several overlapping servers then compile into one shared nimcache and
+// exits — several overlapping servers then compile into one shared cache and
 // thrash it. Chaining every stop→start through one promise caps concurrent
 // servers at one.
 let lifecycleChain: Promise<void> = Promise.resolve();
@@ -25,65 +25,43 @@ function serializeLifecycle(op: () => Promise<void>): Promise<void> {
   return lifecycleChain;
 }
 
-/**
- * Absolute fallback path to the server binary, matching the checked-in repo
- * layout described in ARCHITECTURE.md (`server/bin/nimony-lsp`).
- */
-const ABSOLUTE_FALLBACK_SERVER =
-  "/home/savant/nimony-lsp/server/bin/nimony-lsp";
+const HOME = process.env.USERPROFILE || process.env.HOME || "";
+const DEFAULT_SERVER = path.join(HOME, "dev", "aowllsp", "bin", "aowllsp.exe");
 
 /** Read the extension's configuration namespace. */
 function getConfig(): vscode.WorkspaceConfiguration {
-  return vscode.workspace.getConfiguration("nimony");
+  return vscode.workspace.getConfiguration("aowlmony");
 }
 
-/**
- * Resolve the path to the nimony-lsp server binary.
- *
- * Precedence:
- *   1. `nimony.serverPath` setting, if non-empty.
- *   2. A binary bundled alongside the extension (../server/bin/nimony-lsp,
- *      i.e. the sibling `server` directory of this `client` extension).
- *   3. The absolute fallback path from the repo layout.
- */
-function resolveServerPath(context: vscode.ExtensionContext): string {
+/** Server binary: `aowlmony.serverPath`, then $AOWLLSP_EXE, then ~/dev/aowllsp/bin/aowllsp.exe. */
+function resolveServerPath(_context: vscode.ExtensionContext): string {
   const configured = getConfig().get<string>("serverPath", "").trim();
   if (configured.length > 0) {
     return configured;
   }
-
-  // The extension lives at `client/`; the built binary at `server/bin/nimony-lsp`.
-  // context.extensionPath points at the `client` directory, so go up one level.
-  const sibling = path.join(
-    context.extensionPath,
-    "..",
-    "server",
-    "bin",
-    "nimony-lsp"
-  );
-  if (fs.existsSync(sibling)) {
-    return sibling;
-  }
-
-  return ABSOLUTE_FALLBACK_SERVER;
+  return process.env.AOWLLSP_EXE || DEFAULT_SERVER;
 }
 
-/** Build initializationOptions from the current configuration. */
+/** initializationOptions for aowllsp. Empty entries are left out so the server discovers the tool itself. */
 function buildInitializationOptions(): Record<string, unknown> {
-  const config = getConfig();
-  return {
-    nimonyPath: config.get<string>(
-      "nimonyPath",
-      "/home/savant/nimony/bin/nimony"
-    ),
-    extraPaths: config.get<string[]>("extraPaths", []),
-    daemonPath: config.get<string>("daemonPath", ""),
+  const c = getConfig();
+  const o: Record<string, unknown> = { extraPaths: c.get<string[]>("extraPaths", []) };
+  const map: Record<string, string> = {
+    aowlmonyExe: "aowlmonyPath",
+    aowllensExe: "aowllensPath",
+    aowlsuggestExe: "aowlsuggestPath",
+    aowlfmtExe: "aowlfmtPath",
   };
+  for (const [opt, key] of Object.entries(map)) {
+    const v = c.get<string>(key, "").trim();
+    if (v) o[opt] = v;
+  }
+  return o;
 }
 
 /** Update the status bar item to reflect the current server state. */
 function setStatus(text: string, tooltip: string): void {
-  statusBarItem.text = `$(server-process) Nimony: ${text}`;
+  statusBarItem.text = `$(server-process) aowlmony: ${text}`;
   statusBarItem.tooltip = tooltip;
   statusBarItem.show();
 }
@@ -99,9 +77,9 @@ function createClient(
 
   if (!fs.existsSync(serverPath)) {
     vscode.window.showErrorMessage(
-      `Nimony language server not found at "${serverPath}". ` +
-        `Build it with: cd server && nimble build ` +
-        `(or set "nimony.serverPath" in your settings).`
+      `aowllsp not found at "${serverPath}". ` +
+        `Build it with: bash ~/dev/aowllsp/build.sh ` +
+        `(or set "aowlmony.serverPath" in your settings).`
     );
     setStatus("stopped", `Server binary not found at ${serverPath}`);
     return undefined;
@@ -120,19 +98,18 @@ function createClient(
 
   const clientOptions: LanguageClientOptions = {
     documentSelector: [
-      { scheme: "file", language: "nimony" },
-      { scheme: "file", language: "nim" },
+      { scheme: "file", language: "aowlmony" },
     ],
     initializationOptions: buildInitializationOptions(),
     synchronize: {
-      configurationSection: "nimony",
+      configurationSection: "aowlmony",
     },
-    outputChannelName: "Nimony Language Server",
+    outputChannelName: "aowlmony language server",
   };
 
   const newClient = new LanguageClient(
-    "nimony",
-    "Nimony Language Server",
+    "aowlmony",
+    "aowlmony language server",
     serverOptions,
     clientOptions
   );
@@ -141,13 +118,13 @@ function createClient(
   newClient.onDidChangeState((event) => {
     switch (event.newState) {
       case State.Starting:
-        setStatus("starting", "Nimony language server is starting…");
+        setStatus("starting", "aowlmony language server is starting…");
         break;
       case State.Running:
-        setStatus("running", `Nimony language server running (${serverPath})`);
+        setStatus("running", `aowlmony language server running (${serverPath})`);
         break;
       case State.Stopped:
-        setStatus("stopped", "Nimony language server stopped");
+        setStatus("stopped", "aowlmony language server stopped");
         break;
     }
   });
@@ -163,13 +140,13 @@ async function startClient(context: vscode.ExtensionContext): Promise<void> {
   if (!client) {
     return;
   }
-  setStatus("starting", "Nimony language server is starting…");
+  setStatus("starting", "aowlmony language server is starting…");
   try {
     await client.start();
   } catch (err) {
-    setStatus("stopped", "Nimony language server failed to start");
+    setStatus("stopped", "aowlmony language server failed to start");
     vscode.window.showErrorMessage(
-      `Failed to start Nimony language server: ${String(err)}`
+      `Failed to start aowlmony language server: ${String(err)}`
     );
   }
 }
@@ -196,54 +173,54 @@ export async function activate(
     vscode.StatusBarAlignment.Right,
     100
   );
-  statusBarItem.command = "nimony.restartServer";
+  statusBarItem.command = "aowlmony.restartServer";
   context.subscriptions.push(statusBarItem);
-  setStatus("stopped", "Nimony language server not started");
+  setStatus("stopped", "aowlmony language server not started");
 
   // Restart command: full stop + start with a freshly resolved config.
   context.subscriptions.push(
-    vscode.commands.registerCommand("nimony.restartServer", async () => {
+    vscode.commands.registerCommand("aowlmony.restartServer", async () => {
       await serializeLifecycle(async () => {
         await stopClient();
         await startClient(context);
       });
-      vscode.window.setStatusBarMessage("Nimony: language server restarted", 3000);
+      vscode.window.setStatusBarMessage("aowlmony: language server restarted", 3000);
     })
   );
 
-  // Run the current file: `nimony c -r <file>` in a reused terminal (F6).
+  // Run the current file: `aowlmony run <file>` in a reused terminal (F6).
   context.subscriptions.push(
-    vscode.commands.registerCommand("nimony.run.file", async () => {
+    vscode.commands.registerCommand("aowlmony.run.file", async () => {
       const ed = vscode.window.activeTextEditor;
       if (!ed) {
-        vscode.window.showWarningMessage("Nimony: no active file to run.");
+        vscode.window.showWarningMessage("aowlmony: no active file to run.");
         return;
       }
       await ed.document.save();
       const file = ed.document.uri.fsPath;
       const cfg = getConfig();
-      const nimony = cfg.get<string>("nimonyPath", "/home/savant/nimony/bin/nimony");
+      const exe = cfg.get<string>("aowlmonyPath", "").trim() || "aowlmony";
       const extra = cfg.get<string[]>("extraPaths", []);
-      const q = (s: string) => (/[\s"']/.test(s) ? `'${s.replace(/'/g, "'\\''")}'` : s);
-      const paths = extra.map((p) => `-p:${q(p)}`).join(" ");
+      const q = (v: string) => (/[\s"]/.test(v) ? `"${v}"` : v);
+      const paths = extra.map((p) => `--path:${q(p)}`).join(" ");
       const dir = path.dirname(file);
       const term =
-        vscode.window.terminals.find((t) => t.name === "Nimony Run") ??
-        vscode.window.createTerminal({ name: "Nimony Run", cwd: dir });
+        vscode.window.terminals.find((t) => t.name === "aowlmony Run") ??
+        vscode.window.createTerminal({ name: "aowlmony Run", cwd: dir });
       term.show(true);
-      term.sendText(`${q(nimony)} c -r ${paths} ${q(file)}`.replace(/\s+/g, " ").trim());
+      term.sendText(`${exe === "aowlmony" ? exe : `& ${q(exe)}`} run ${paths} ${q(file)}`.replace(/\s+/g, " ").trim());
     })
   );
 
   // Clear the LSP's per-file compile caches and restart — a self-heal button if
-  // a nimcache ever gets into a bad state. Removes only the LSP's own dirs
-  // (`nimcache/lsp`, `.nimlsp_livecache`), never the user's `nimony c` cache.
+  // the cache ever gets into a bad state. Removes only the LSP's own dirs
+  // (`.aowllsp`), never the user's build cache.
   context.subscriptions.push(
-    vscode.commands.registerCommand("nimony.clearCache", async () => {
+    vscode.commands.registerCommand("aowlmony.clearCache", async () => {
       const folders = vscode.workspace.workspaceFolders ?? [];
       let removed = 0;
       for (const f of folders) {
-        for (const sub of ["nimcache/lsp", ".nimlsp_livecache"]) {
+        for (const sub of [".aowllsp"]) {
           const dir = path.join(f.uri.fsPath, sub);
           try {
             if (fs.existsSync(dir)) {
@@ -260,21 +237,23 @@ export async function activate(
         await startClient(context);
       });
       vscode.window.setStatusBarMessage(
-        `Nimony: cleared ${removed} cache dir(s), server restarted`,
+        `aowlmony: cleared ${removed} cache dir(s), server restarted`,
         3000
       );
     })
   );
 
   // Restart automatically when relevant settings change so the new
-  // serverPath / nimonyPath / extraPaths take effect.
+  // serverPath / aowlmonyPath / extraPaths take effect.
   context.subscriptions.push(
     vscode.workspace.onDidChangeConfiguration(async (e) => {
       if (
-        e.affectsConfiguration("nimony.serverPath") ||
-        e.affectsConfiguration("nimony.nimonyPath") ||
-        e.affectsConfiguration("nimony.extraPaths") ||
-        e.affectsConfiguration("nimony.daemonPath")
+        e.affectsConfiguration("aowlmony.serverPath") ||
+        e.affectsConfiguration("aowlmony.extraPaths") ||
+        e.affectsConfiguration("aowlmony.aowlmonyPath") ||
+        e.affectsConfiguration("aowlmony.aowllensPath") ||
+        e.affectsConfiguration("aowlmony.aowlsuggestPath") ||
+        e.affectsConfiguration("aowlmony.aowlfmtPath")
       ) {
         await serializeLifecycle(async () => {
           await stopClient();
