@@ -2,7 +2,7 @@
   "name": "aowlmony",
   "displayName": "aowlmony",
   "description": "Language support for aowlmony: syntax highlighting, diagnostics, hover, go to definition, references, rename, completion, semantic tokens, symbols and F6 run, powered by the aowllsp language server.",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "publisher": "aoughwl",
   "license": "MIT",
   "engines": {
@@ -38,7 +38,11 @@
         "extensions": [
           ".aowl"
         ],
-        "configuration": "./language-configuration.json"
+        "configuration": "./language-configuration.json",
+        "icon": {
+          "light": "./icons/aoughwl.png",
+          "dark": "./icons/aoughwl.png"
+        }
       }
     ],
     "grammars": [
@@ -139,5 +143,6 @@
   },
   "bugs": {
     "url": "https://github.com/aoughwl/vscode-aowlmony/issues"
-  }
+  },
+  "icon": "icons/aoughwl.png"
 }
